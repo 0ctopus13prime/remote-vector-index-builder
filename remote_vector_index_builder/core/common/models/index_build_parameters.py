@@ -22,6 +22,7 @@ class DataType(str, Enum):
     """
 
     FLOAT = "float"
+    FLOAT16 = "float16"
 
     def get_size(self):
         """Get the size of the data type in bytes.
@@ -31,6 +32,8 @@ class DataType(str, Enum):
         """
         if self == DataType.FLOAT:
             return 4
+        elif self == DataType.FLOAT16:
+            return 2
         else:
             raise ValueError(f"Unsupported data type: {self}")
 

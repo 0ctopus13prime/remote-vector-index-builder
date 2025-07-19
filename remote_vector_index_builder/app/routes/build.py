@@ -62,6 +62,7 @@ def create_job(
             - 507 status code if system memory capacity is exceeded
     """
     try:
+        print("_____________________________ index_build_parameters=", str(index_build_parameters))
         job_service = request.app.state.job_service
         job_id = job_service.create_job(index_build_parameters)
     except HashCollisionError as e:

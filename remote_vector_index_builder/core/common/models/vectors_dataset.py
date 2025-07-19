@@ -57,6 +57,8 @@ class VectorsDataset:
         """
         if dtype == DataType.FLOAT:
             return "<f4"
+        elif dtype == DataType.FLOAT16:
+            return "<f2"
         else:
             raise UnsupportedVectorsDataTypeError(f"Unsupported data type: {dtype}")
 

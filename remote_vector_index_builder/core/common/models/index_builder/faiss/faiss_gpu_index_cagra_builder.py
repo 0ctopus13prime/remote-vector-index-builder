@@ -215,7 +215,7 @@ class FaissGPUIndexCagraBuilder(FaissGPUIndexBuilder):
             faiss_index_id_map = faiss.IndexIDMap(faiss_gpu_index)
             # Add vectors and their corresponding IDs to the index
             faiss_index_id_map.add_with_ids(
-                vectorsDataset.vectors, vectorsDataset.doc_ids
+                vectorsDataset.vectors, vectorsDataset.doc_ids, numeric_type=faiss.Float16
             )
 
             return FaissGpuBuildIndexOutput(
