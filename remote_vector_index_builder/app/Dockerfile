@@ -6,7 +6,8 @@
 # compatible open source license.
 
 ARG CORE_IMAGE_TAG=core-snapshot
-FROM opensearchstaging/remote-vector-index-builder:${CORE_IMAGE_TAG}
+# FROM opensearchstaging/remote-vector-index-builder:${CORE_IMAGE_TAG}
+FROM kdy-core
 
 USER root
 
@@ -16,7 +17,7 @@ COPY ./remote_vector_index_builder/app/requirements.txt /app/remote_vector_index
 
 RUN pip install --no-cache-dir --upgrade -r /app/remote_vector_index_builder/app/requirements.txt
 
-COPY ./remote_vector_index_builder/app/. /app/remote_vector_index_builder/app
+COPY ./remote_vector_index_builder/app /app/remote_vector_index_builder/app
 
 RUN pip install -e ./remote_vector_index_builder/app
 
@@ -27,4 +28,5 @@ USER appuser
 
 RUN ["python", "./remote_vector_index_builder/app/test_imports.py"]
 
-CMD ["fastapi", "run", "./remote_vector_index_builder/app/main.py", "--port", "1025"]
+# CMD ["fastapi", "run", "./remote_vector_index_builder/app/main.py", "--port", "1025"]
+CMD ["/bin/bash"]
