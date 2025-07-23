@@ -8,6 +8,8 @@
 from abc import ABC, abstractmethod
 from io import BytesIO
 
+from remote_vector_index_builder.core.common.models import IndexBuildParameters
+
 
 class ObjectStore(ABC):
     """
@@ -21,7 +23,7 @@ class ObjectStore(ABC):
     """
 
     @abstractmethod
-    def read_blob(self, remote_store_path: str, bytes_buffer: BytesIO) -> None:
+    def read_blob(self, remote_store_path: str, bytes_buffer: BytesIO, transformer) -> None:
         """
         Downloads the blob from the remote_store_path, to a buffer in memory
 

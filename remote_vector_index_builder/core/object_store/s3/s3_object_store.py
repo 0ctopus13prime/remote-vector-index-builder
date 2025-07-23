@@ -14,6 +14,8 @@ from functools import cache
 from io import BytesIO
 from typing import Any, Dict, Optional
 
+import numpy as np
+
 import boto3
 from boto3.s3.transfer import TransferConfig
 from botocore.config import Config
@@ -202,7 +204,7 @@ class S3ObjectStore(ObjectStore):
 
         return config_params
 
-    def read_blob(self, remote_store_path: str, bytes_buffer: BytesIO) -> None:
+    def read_blob(self, remote_store_path: str, bytes_buffer: BytesIO, transformer) -> None:
         """
         Downloads a blob from S3 to the provided bytes buffer, with retry logic.
 
@@ -243,16 +245,41 @@ class S3ObjectStore(ObjectStore):
             # Get KMS key for this object and save it to this class instance, to be used for object uploads later
             self.get_kms_key(remote_store_path)
 
-            # Create transfer config object
-            s3_transfer_config = TransferConfig(**self.download_transfer_config)
-            self.s3_client.download_fileobj(
-                self.bucket,
-                remote_store_path,
-                bytes_buffer,
-                Config=s3_transfer_config,
-                Callback=callback_func,
-                ExtraArgs=self.download_args,
-            )
+            one_vec_size = index_build_params.dimension * 2
+            response = self.s3_client.get_object(Bucket=self.bucket, Key=remote_store_path)
+            # Pre-allocate one vector buffer
+            output_buffer = np.empty(index_build_params.dimension, dtype=np.float16)
+            body = response['Body']
+            try:
+                while True:
+                    chunk = body.read(one_vec_size)
+                    if not chunk:
+                        break
+
+                    # View bytes as float32 array
+                    arr_fp32 = np.frombuffer(chunk, dtype=np.float32)
+
+                    # Convert to float16
+                    output_buffer[:] = arr_fp32
+
+                    # Flush into the destination buffer
+                    bytes_buffer.write(output_buffer.tobytes().data)
+            finally:
+                body.close()
+
+            # rewind before returning
+            bytes_buffer.seek(0)
+
+            # # Create transfer config object
+            # s3_transfer_config = TransferConfig(**self.download_transfer_config)
+            # self.s3_client.download_fileobj(
+            #     self.bucket,
+            #     remote_store_path,
+            #     bytes_buffer,
+            #     Config=s3_transfer_config,
+            #     Callback=callback_func,
+            #     ExtraArgs=self.download_args,
+            # )
             return
         except TypeError as e:
             raise BlobError(f"Error calling boto3.download_fileobj: {e}") from e

@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from timeit import default_timer as timer
 import traceback
+import numpy as np
 from typing import Any, Dict, Optional
 
 from core.common.models import IndexBuildParameters
@@ -259,8 +260,22 @@ def create_vectors_dataset(
         UnsupportedObjectStoreTypeError: If the index_build_params.repository_type is not supported
 
     """
-    object_store.read_blob(index_build_params.vector_path, vector_bytes_buffer)
-    object_store.read_blob(index_build_params.doc_id_path, doc_id_bytes_buffer)
+
+    class FP16Transformer:
+        def __init__(self):
+            self.tmp_buffer = np.empty(index_build_params.dimension, dtype=np.float16)
+
+        def get_read_size(self):
+            return index_build_params.dimension * 2
+
+        def transform(self, chunk, dest):
+            arr_fp32 = np.frombuffer(chunk, dtype=np.float32)
+            self.tmp_buffer[:] = arr_fp32
+            dest.write(self.tmp_buffer.tobytes().data)
+
+
+    object_store.read_blob(index_build_params.vector_path, vector_bytes_buffer, FP16Transformer())
+    object_store.read_blob(index_build_params.doc_id_path, doc_id_bytes_buffer, None)
 
     return VectorsDataset.parse(
         vector_bytes_buffer,

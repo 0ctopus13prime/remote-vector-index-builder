@@ -13,7 +13,7 @@ USER root
 
 WORKDIR /app
 
-COPY ./remote_vector_index_builder/app/requirements.txt /app/remote_vector_index_builder/app/requirements.txt
+COPY ./remote_vector_index_builder/app /app/remote_vector_index_builder/app
 
 RUN pip install --no-cache-dir --upgrade -r /app/remote_vector_index_builder/app/requirements.txt
 

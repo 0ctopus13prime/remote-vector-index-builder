@@ -110,6 +110,8 @@ class VectorsDataset:
             np_vectors = np.frombuffer(
                 vector_view, dtype=VectorsDataset.get_numpy_dtype(vector_dtype)
             )
+            print("_________________ vector_dtype=", str(vector_dtype))
+            print("_________________ dtype=", VectorsDataset.get_numpy_dtype(vector_dtype))
             VectorsDataset.check_dimensions(np_vectors, doc_count * dimension)
             np_vectors = np_vectors.reshape(doc_count, dimension)
 
