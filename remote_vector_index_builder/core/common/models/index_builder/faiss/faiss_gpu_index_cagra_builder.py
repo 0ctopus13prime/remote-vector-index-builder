@@ -6,6 +6,7 @@
 # compatible open source license.
 
 import faiss
+import numpy as np
 from typing import Dict, Any
 from dataclasses import field, dataclass
 
@@ -214,8 +215,9 @@ class FaissGPUIndexCagraBuilder(FaissGPUIndexBuilder):
             # Create ID mapping layer to preserve document IDs
             faiss_index_id_map = faiss.IndexIDMap(faiss_gpu_index)
             # Add vectors and their corresponding IDs to the index
+            vectorsDataset.vectors = vectorsDataset.vectors.astype(np.float16)
             faiss_index_id_map.add_with_ids(
-                vectorsDataset.vectors, vectorsDataset.doc_ids
+                vectorsDataset.vectors, vectorsDataset.doc_ids, numeric_type = faiss.Float16
             )
 
             return FaissGpuBuildIndexOutput(

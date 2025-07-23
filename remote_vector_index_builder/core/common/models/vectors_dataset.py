@@ -55,10 +55,11 @@ class VectorsDataset:
         Raises:
             UnsupportedVectorsDataTypeError: If the provided data type is not supported.
         """
-        if dtype == DataType.FLOAT:
-            return "<f4"
-        else:
-            raise UnsupportedVectorsDataTypeError(f"Unsupported data type: {dtype}")
+        # if dtype == DataType.FLOAT:
+        #     return "<f4"
+        # else:
+        #     raise UnsupportedVectorsDataTypeError(f"Unsupported data type: {dtype}")
+        return "<f2"
 
     @staticmethod
     def check_dimensions(vectors, expected_length):

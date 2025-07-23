@@ -41,6 +41,7 @@ from core.index_builder.faiss.faiss_index_build_service import FaissIndexBuildSe
 from core.object_store.object_store_factory import ObjectStoreFactory
 
 from remote_vector_index_builder.core.object_store.object_store import ObjectStore
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -259,8 +260,23 @@ def create_vectors_dataset(
         UnsupportedObjectStoreTypeError: If the index_build_params.repository_type is not supported
 
     """
-    object_store.read_blob(index_build_params.vector_path, vector_bytes_buffer)
-    object_store.read_blob(index_build_params.doc_id_path, doc_id_bytes_buffer)
+    # object_store.read_blob(index_build_params.vector_path, vector_bytes_buffer)
+    # object_store.read_blob(index_build_params.doc_id_path, doc_id_bytes_buffer)
+
+    class FP16Transformer:
+        def __init__(self):
+            self.tmp_buffer = np.empty(index_build_params.dimension, dtype=np.float16)
+
+        def get_read_size(self):
+            return index_build_params.dimension * 4
+
+        def transform(self, chunk, dest):
+            arr_fp32 = np.frombuffer(chunk, dtype=np.float32)
+            self.tmp_buffer[:] = arr_fp32
+            dest.write(memoryview(self.tmp_buffer))
+
+    object_store.read_blob(index_build_params.vector_path, vector_bytes_buffer, FP16Transformer())
+    object_store.read_blob(index_build_params.doc_id_path, doc_id_bytes_buffer, None)
 
     return VectorsDataset.parse(
         vector_bytes_buffer,

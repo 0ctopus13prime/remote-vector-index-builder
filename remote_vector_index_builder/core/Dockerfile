@@ -1,5 +1,6 @@
 ARG BASE_IMAGE_TAG=faiss-base-snapshot
-FROM opensearchstaging/remote-vector-index-builder:${BASE_IMAGE_TAG}
+# FROM opensearchstaging/remote-vector-index-builder:${BASE_IMAGE_TAG}
+FROM kdy-base
 USER root
 
 WORKDIR /app

@@ -21,7 +21,7 @@ class ObjectStore(ABC):
     """
 
     @abstractmethod
-    def read_blob(self, remote_store_path: str, bytes_buffer: BytesIO) -> None:
+    def read_blob(self, remote_store_path: str, bytes_buffer: BytesIO, transformer=None) -> None:
         """
         Downloads the blob from the remote_store_path, to a buffer in memory
 
