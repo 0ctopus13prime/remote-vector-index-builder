@@ -20,6 +20,7 @@ from core.common.models.index_builder import (
 )
 
 from core.index_builder.index_builder_utils import configure_metric
+from core.common.models.index_build_parameters import DataType
 from .ivf_pq_build_cagra_config import IVFPQBuildCagraConfig
 from .ivf_pq_search_cagra_config import IVFPQSearchCagraConfig
 
@@ -170,9 +171,17 @@ class FaissGPUIndexCagraBuilder(FaissGPUIndexBuilder):
             ivf_pq_search_config=ivf_pq_search_config,
         )
 
+    @staticmethod
+    def _determine_faiss_numeric_type(dtype: DataType):
+        if dtype == DataType.FLOAT:
+            return faiss.Float32
+        elif dtype == DataType.BYTE:
+            return faiss.Int8
+        raise ValueError(f"Unsupported data type: {dtype}")
+
     def build_gpu_index(
         self,
-        vectorsDataset: VectorsDataset,
+        vectors_dataset: VectorsDataset,
         dataset_dimension: int,
         space_type: SpaceType,
     ) -> FaissGpuBuildIndexOutput:
@@ -189,9 +198,8 @@ class FaissGPUIndexCagraBuilder(FaissGPUIndexBuilder):
         """
         faiss_gpu_index = None
         faiss_index_id_map = None
-        faiss_gpu_index_config = None
 
-        # Create a faiis equivalent version of gpu index build config
+        # Create a faiss equivalent version of gpu index build config
         try:
             faiss_gpu_index_config = self.to_faiss_config()
         except Exception as e:
@@ -215,7 +223,11 @@ class FaissGPUIndexCagraBuilder(FaissGPUIndexBuilder):
             faiss_index_id_map = faiss.IndexIDMap(faiss_gpu_index)
             # Add vectors and their corresponding IDs to the index
             faiss_index_id_map.add_with_ids(
-                vectorsDataset.vectors, vectorsDataset.doc_ids
+                vectors_dataset.vectors,
+                vectors_dataset.doc_ids,
+                FaissGPUIndexCagraBuilder._determine_faiss_numeric_type(
+                    vectors_dataset.dtype
+                ),
             )
 
             return FaissGpuBuildIndexOutput(
