@@ -28,6 +28,7 @@ class VectorsDataset:
 
     vectors: np.ndarray
     doc_ids: np.ndarray
+    dtype: DataType
 
     def free_vectors_space(self):
         """Free up memory by deleting the vectors and document IDs arrays."""
@@ -57,6 +58,8 @@ class VectorsDataset:
         """
         if dtype == DataType.FLOAT:
             return "<f4"
+        if dtype == DataType.BYTE:
+            return "<i1"
         else:
             raise UnsupportedVectorsDataTypeError(f"Unsupported data type: {dtype}")
 
@@ -118,4 +121,4 @@ class VectorsDataset:
 
         except (ValueError, TypeError, MemoryError, RuntimeError) as e:
             raise VectorsDatasetError(f"Error parsing vectors: {e}") from e
-        return VectorsDataset(np_vectors, np_doc_ids)
+        return VectorsDataset(np_vectors, np_doc_ids, vector_dtype)

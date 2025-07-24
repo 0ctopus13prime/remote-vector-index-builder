@@ -12,6 +12,7 @@ from types import ModuleType
 from unittest.mock import Mock
 
 from core.common.models import VectorsDataset
+from core.common.models.index_build_parameters import DataType
 from core.object_store.s3.s3_object_store_config import S3ClientConfig
 
 
@@ -92,7 +93,7 @@ class MockIndexIDMap:
     def is_deleted(self):
         return _deletion_tracker.is_deleted(self.id)
 
-    def add_with_ids(self, vectors, ids):
+    def add_with_ids(self, vectors, ids, numeric_type):
         pass
 
 
@@ -158,6 +159,8 @@ class FaissMock(ModuleType):
         self.IVFPQBuildCagraConfig = MockIVFPQBuildCagraConfig
         self.IVFPQSearchCagraConfig = MockIVFPQSearchCagraConfig
         self.GpuIndexCagraConfig = MockGpuIndexCagraConfig
+        self.Float32 = Mock()
+        self.Int8 = Mock()
 
         # Enums
         self.graph_build_algo_IVF_PQ = 1
@@ -226,4 +229,6 @@ def sample_doc_ids():
 @pytest.fixture
 def vectors_dataset(sample_vectors, sample_doc_ids):
     """Create a VectorsDataset instance for testing"""
-    return VectorsDataset(vectors=sample_vectors, doc_ids=sample_doc_ids)
+    return VectorsDataset(
+        vectors=sample_vectors, doc_ids=sample_doc_ids, dtype=DataType.FLOAT
+    )

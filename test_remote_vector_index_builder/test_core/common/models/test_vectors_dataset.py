@@ -15,7 +15,9 @@ from core.common.models.vectors_dataset import VectorsDataset
 
 
 def test_initialization(sample_vectors, sample_doc_ids):
-    dataset = VectorsDataset(vectors=sample_vectors, doc_ids=sample_doc_ids)
+    dataset = VectorsDataset(
+        vectors=sample_vectors, doc_ids=sample_doc_ids, dtype=DataType.FLOAT
+    )
     assert np.array_equal(dataset.vectors, sample_vectors)
     assert np.array_equal(dataset.doc_ids, sample_doc_ids)
 
@@ -42,6 +44,7 @@ def test_free_vectors_space_when_vectors_and_doc_ids_already_deleted(vectors_dat
     "dtype, expected",
     [
         (DataType.FLOAT, "<f4"),
+        (DataType.BYTE, "<i1"),
     ],
 )
 def test_get_numpy_dtype_valid(dtype, expected):
@@ -90,6 +93,7 @@ def test_parse_valid_data(sample_vectors, sample_doc_ids):
     assert len(dataset.vectors) == doc_count
     assert np.array_equal(dataset.doc_ids, sample_doc_ids)
     assert np.array_equal(dataset.vectors, sample_vectors)
+    assert dataset.dtype == vector_dtype
 
     dataset.free_vectors_space()
     vectors_binary.close()
@@ -112,23 +116,29 @@ def test_parse_invalid_doc_count():
         doc_ids.close()
 
 
-def test_parse_invalid_vector_dimensions():
+@pytest.mark.parametrize(
+    "dtype, expected",
+    [
+        (DataType.FLOAT, "<f4"),
+        (DataType.BYTE, "<i1"),
+    ],
+)
+def test_parse_invalid_vector_dimensions(vector_dtype, numpy_dtype):
     with pytest.raises(VectorsDatasetError):
-        vectors = BytesIO(np.zeros(5, dtype="<f4").tobytes())
+        vectors = BytesIO(np.zeros(5, dtype=numpy_dtype).tobytes())
         doc_ids = BytesIO(np.array([1, 2, 3, 4, 5], dtype="<i4").tobytes())
         dataset = VectorsDataset.parse(
             vectors=vectors,
             doc_ids=doc_ids,
             dimension=2,  # Expecting 10 values (5*2), but only provided 5
             doc_count=5,
-            vector_dtype=DataType.FLOAT,
+            vector_dtype=vector_dtype,
         )
         dataset.free_vectors_space()
         vectors.close()
         doc_ids.close()
 
 
-#
 def test_parse_invalid_data():
     with patch("numpy.frombuffer") as mock_frombuffer:
         mock_frombuffer.side_effect = ValueError("Invalid data")
