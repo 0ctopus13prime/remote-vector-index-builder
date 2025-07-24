@@ -9,6 +9,7 @@ import logging
 import os
 from typing import Optional, Tuple
 from app.models.workflow import BuildWorkflow
+from core.object_store.s3.s3_object_store_config import S3ClientConfig
 from core.tasks import run_tasks
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,13 @@ class IndexBuilder:
         """
         s3_endpoint_url = os.environ.get("S3_ENDPOINT_URL", None)
         result = run_tasks(
-            workflow.index_build_parameters, {"S3_ENDPOINT_URL": s3_endpoint_url}
+            workflow.index_build_parameters,
+            {
+                "s3_client_config": S3ClientConfig(
+                    region_name=os.environ.get("AWS_DEFAULT_REGION", None),
+                    endpoint_url=s3_endpoint_url,
+                ),
+            },
         )
         if not result.file_name:
             return False, None, result.error

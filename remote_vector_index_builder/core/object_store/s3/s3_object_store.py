@@ -12,7 +12,7 @@ import sys
 import threading
 from functools import cache
 from io import BytesIO
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import boto3
 from boto3.s3.transfer import TransferConfig
@@ -21,6 +21,7 @@ from botocore.exceptions import ClientError
 from core.common.exceptions import BlobError
 from core.common.models import IndexBuildParameters
 from core.object_store.object_store import ObjectStore
+from core.object_store.s3.s3_object_store_config import S3ClientConfig
 
 logger = logging.getLogger(__name__)
 
@@ -46,28 +47,24 @@ def get_cpus(factor: float) -> int:
 
 
 @cache
-def get_boto3_client(
-    region: str, retries: int, endpoint_url: Optional[str] = None
-) -> boto3.client:
+def get_boto3_client(s3_client_config: S3ClientConfig) -> boto3.client:
     """Create or retrieve a cached boto3 S3 client.
 
     Args:
-        region (str): AWS region name for the S3 client
-        retries (int): Maximum number of retry attempts for failed requests
-        endpoint_url (str): s3 endpoint URL. Defaults to None, in which case boto3
-            automatically constructs the appropriate URL to use when communicating
-            with a service. During integration testing, this can be set to the endpoint URL
-            for LocalStack S3 service.
+        s3_client_config (S3ClientConfig): Configuration class for creating S3 Boto3 client
 
     Returns:
         boto3.client: Configured S3 client instance
     """
-    config = Config(retries={"max_attempts": retries})
+    config = Config(retries={"max_attempts": s3_client_config.max_retries})
     return boto3.client(
         "s3",
         config=config,
-        region_name=region,
-        endpoint_url=endpoint_url,
+        region_name=s3_client_config.region_name,
+        endpoint_url=s3_client_config.endpoint_url,
+        aws_access_key_id=s3_client_config.aws_access_key_id,
+        aws_secret_access_key=s3_client_config.aws_secret_access_key,
+        aws_session_token=s3_client_config.aws_session_token,
     )
 
 
@@ -102,11 +99,27 @@ class S3ObjectStore(ObjectStore):
         Args:
             index_build_params (IndexBuildParameters): Contains bucket name and other
                 index building parameters
+
             object_store_config (Dict[str, Any]): Configuration dictionary containing:
-                - retries (int): Maximum number of retry attempts (default: 3)
-                - region (str): AWS region name (default: 'us-west-2')
+            Contains:
                 - transfer_config (Dict[str, Any]): s3 TransferConfig parameters
                 - debug: Turns on debug mode (default: False)
+                - s3_client_config (S3ClientConfig) (Required):
+                    Required:
+                        - region_name (str) (required): AWS Region name
+                    Optional:
+                        - endpoint_url (Optional[str]): Custom S3 endpoint URL
+                        - max_retries (int) (default: 3): Maximum number of retry attempts for failed requests
+
+                        AWS Credentials (all optional):
+                            - aws_access_key_id (Optional[str]): AWS Access Key ID
+                            - aws_secret_access_key (Optional[str]): AWS Secret Access Key
+                            - aws_session_token (Optional[str]): Temporary session token for STS credentials
+
+        Note:
+            AWS credentials are optional as boto3 will attempt to find credentials:
+            For more details see boto3 client documentation:
+            https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
         """
 
         self.DEFAULT_DOWNLOAD_TRANSFER_CONFIG = {
@@ -130,14 +143,12 @@ class S3ObjectStore(ObjectStore):
             "ChecksumAlgorithm": "CRC32",
         }
         self.bucket = index_build_params.container_name
-        self.max_retries = object_store_config.get("retries", 3)
-        self.region = object_store_config.get("region", "us-west-2")
 
-        self.s3_client = get_boto3_client(
-            region=self.region,
-            retries=self.max_retries,
-            endpoint_url=object_store_config.get("S3_ENDPOINT_URL"),
-        )
+        s3_client_config: S3ClientConfig = object_store_config.get("s3_client_config")
+        self.max_retries = s3_client_config.max_retries
+        self.region = s3_client_config.region_name
+
+        self.s3_client = get_boto3_client(s3_client_config)
 
         download_transfer_config = object_store_config.get(
             "download_transfer_config", {}

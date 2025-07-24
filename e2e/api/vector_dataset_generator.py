@@ -12,6 +12,7 @@ import time
 from botocore.exceptions import ClientError
 from core.common.models import IndexBuildParameters
 from core.object_store.object_store_factory import ObjectStoreFactory
+from core.object_store.s3.s3_object_store_config import S3ClientConfig
 from core.object_store.types import ObjectStoreType
 import logging
 from tqdm import tqdm
@@ -38,11 +39,11 @@ class VectorDatasetGenerator:
             doc_count=5,  # Will be set per dataset
         )
         object_store_config = {
-            "retries": s3_config["retries"],
-            "region": s3_config["region"],
-            "S3_ENDPOINT_URL": os.environ.get(
-                "S3_ENDPOINT_URL", "http://localhost:4566"
-            ),
+            "s3_client_config": S3ClientConfig(
+                region_name=s3_config["region"],
+                max_retries=s3_config["retries"],
+                endpoint_url=os.environ.get("S3_ENDPOINT_URL", "http://localhost:4566"),
+            )
         }
         return ObjectStoreFactory.create_object_store(
             index_build_params, object_store_config

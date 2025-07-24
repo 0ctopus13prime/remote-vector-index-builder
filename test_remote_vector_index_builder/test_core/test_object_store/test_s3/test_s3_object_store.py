@@ -6,13 +6,15 @@
 # compatible open source license.
 
 from io import BytesIO
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
+from botocore.config import Config
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import ClientError
 from core.common.exceptions import BlobError
 from core.object_store.s3.s3_object_store import S3ObjectStore, get_boto3_client
+from core.object_store.s3.s3_object_store_config import S3ClientConfig
 
 
 # Mock the logger to prevent actual logging during tests
@@ -25,11 +27,16 @@ def mock_logger():
 @pytest.fixture
 def object_store_config():
     return {
-        "retries": 3,
-        "region": "us-west-2",
         "debug": False,
         "download_transfer_config": {"max_concurrency": 4},
         "upload_transfer_config": {"max_concurrency": 8},
+        "s3_client_config": S3ClientConfig(
+            max_retries=4,
+            region_name="us-east-1",
+            aws_access_key_id="access-key-id",
+            aws_secret_access_key="secret-access-key",
+            aws_session_token="session_token",
+        ),
     }
 
 
@@ -49,17 +56,56 @@ def bytes_buffer():
 
 def test_get_boto3_client():
     with patch("boto3.client") as mock_client:
+        # Ensure mock_client returns different instance for different args
+        mock_client.side_effect = (
+            lambda *args, **kwargs: f"client-{mock_client.call_count}"
+        )
+
         # Test caching behavior
-        client1 = get_boto3_client("us-west-2", 3)
-        client2 = get_boto3_client("us-west-2", 3)
+        basic_config = S3ClientConfig(
+            region_name="us-east-1",
+            max_retries=4,
+            aws_access_key_id="test-key",
+            aws_secret_access_key="test-secret",
+            aws_session_token="test-token",
+        )
+        client1 = get_boto3_client(basic_config)
+        client2 = get_boto3_client(basic_config)
         assert client1 == client2
-        mock_client.assert_called_once()
+
+        # Assert all args were set correctly
+        mock_client.assert_called_once_with(
+            "s3",
+            config=ANY,
+            region_name="us-east-1",
+            endpoint_url=None,
+            aws_access_key_id="test-key",
+            aws_secret_access_key="test-secret",
+            aws_session_token="test-token",
+        )
+        calls = mock_client.call_args_list
+        assert isinstance(calls[0][1]["config"], Config)
+        assert calls[0][1]["config"].retries["max_attempts"] == 4
 
         # Test different parameters create new client
-        get_boto3_client("us-east-1", 3)
+        client3 = get_boto3_client(
+            S3ClientConfig(
+                region_name="us-east-1",
+                max_retries=4,
+                aws_access_key_id="test-key2",
+                aws_secret_access_key="test-secret2",
+                aws_session_token="test-token2",
+            )
+        )
+        assert client1 != client3
         assert mock_client.call_count == 2
 
-        get_boto3_client("us-east-1", 3, "test-url")
+        client4 = get_boto3_client(
+            S3ClientConfig(
+                region_name="us-east-1", max_retries=3, endpoint_url="test_url"
+            )
+        )
+        assert client3 != client4
         assert mock_client.call_count == 3
 
 
@@ -67,8 +113,8 @@ def test_s3_object_store_initialization(index_build_parameters, object_store_con
     with patch("core.object_store.s3.s3_object_store.get_boto3_client"):
         store = S3ObjectStore(index_build_parameters, object_store_config)
         assert store.bucket == index_build_parameters.container_name
-        assert store.max_retries == object_store_config["retries"]
-        assert store.region == object_store_config["region"]
+        assert store.max_retries == object_store_config["s3_client_config"].max_retries
+        assert store.region == object_store_config["s3_client_config"].region_name
         assert (
             store.download_transfer_config["max_concurrency"]
             == object_store_config["download_transfer_config"]["max_concurrency"]
@@ -84,14 +130,18 @@ def test_s3_object_store_initialization(index_build_parameters, object_store_con
 def test_s3_object_store_initialization_debug_config(index_build_parameters):
     with patch("core.object_store.s3.s3_object_store.get_boto3_client"):
         with patch("os.cpu_count", return_value=None):
-            store = S3ObjectStore(index_build_parameters, {"debug": True})
+            store = S3ObjectStore(
+                index_build_parameters,
+                {
+                    "debug": True,
+                    "s3_client_config": S3ClientConfig(region_name="us-west-2"),
+                },
+            )
             assert store.debug
 
 
 def test_create_custom_config(index_build_parameters):
     custom_config = {
-        "retries": 3,
-        "region": "us-west-2",
         "debug": False,
         "download_transfer_config": {
             "multipart_chunksize": 20 * 1024 * 1024,
@@ -103,12 +153,16 @@ def test_create_custom_config(index_build_parameters):
         },
         "download_args": {"ChecksumMode": "DISABLED", "param": "value"},
         "upload_args": {"ChecksumAlgorithm": "SHA1", "param": "value"},
+        "s3_client_config": S3ClientConfig(
+            region_name="us-west-1",
+            max_retries=5,
+        ),
     }
 
     with patch("core.object_store.s3.s3_object_store.get_boto3_client"):
         store = S3ObjectStore(index_build_parameters, custom_config)
-        assert store.max_retries == 3
-        assert store.region == "us-west-2"
+        assert store.max_retries == custom_config["s3_client_config"].max_retries
+        assert store.region == custom_config["s3_client_config"].region_name
         assert not store.debug
         assert store.download_transfer_config["multipart_chunksize"] == 20 * 1024 * 1024
         assert store.download_transfer_config["max_concurrency"] == 8

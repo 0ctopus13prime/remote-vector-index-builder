@@ -6,6 +6,7 @@
 # compatible open source license.
 
 import pytest
+import os
 from core.common.models.index_build_parameters import (
     AlgorithmParameters,
     IndexBuildParameters,
@@ -31,3 +32,11 @@ def index_build_parameters():
         ),
         repository_type="s3",
     )
+
+
+@pytest.fixture(autouse=True)
+def aws_credentials():
+    """Mocked AWS Credentials for tests."""
+    os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
+    yield
+    os.environ.pop("AWS_DEFAULT_REGION", None)
