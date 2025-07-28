@@ -75,6 +75,31 @@ class MockGpuIndexCagra:
         return True
 
 
+class MockGpuIndexBinaryCagra:
+    """Mock for faiss.GpuIndexBinaryCagra with deletion tracking"""
+
+    def __init__(self, *args, **kwargs):
+        self.id = id(self)
+        self.thisown = False
+        self.args = args
+        self.kwargs = kwargs
+
+    def __del__(self):
+        print("deleting MockGpuIndexBinaryCagra:", self.id)
+        _deletion_tracker.mark_deleted(self.id)
+
+    @property
+    def is_deleted(self):
+        return _deletion_tracker.is_deleted(self.id)
+
+    def copyTo(self, cpu_index):
+        """Mock implementation of copyTo method"""
+        if not isinstance(cpu_index, MockIndexBinaryHNSW):
+            raise TypeError("Target must be IndexBinaryHNSW")
+        # Simulate copying data to CPU index
+        return True
+
+
 class MockIndexIDMap:
     """Mock for faiss.IndexIDMap with deletion tracking"""
 
@@ -97,8 +122,46 @@ class MockIndexIDMap:
         pass
 
 
+class MockIndexBinaryIDMap:
+    """Mock for faiss.IndexBinaryIDMap with deletion tracking"""
+
+    def __init__(self, *args, **kwargs):
+        self.id = id(self)
+        self.own_fields = False
+        self.index = None
+        self.args = args
+        self.kwargs = kwargs
+
+    def __del__(self):
+        print("deleting IndexBinaryIDMap:", self.id)
+        _deletion_tracker.mark_deleted(self.id)
+
+    @property
+    def is_deleted(self):
+        return _deletion_tracker.is_deleted(self.id)
+
+    def add_with_ids(self, vectors, ids):
+        pass
+
+
 class MockIndexHNSWCagra(Mock):
     """Mock for faiss.IndexHNSWCagra"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.hnsw = Mock()
+        self.base_level_only = True
+
+    def __del__(self):
+        _deletion_tracker.mark_deleted(self.id)
+
+    @property
+    def is_deleted(self):
+        return _deletion_tracker.is_deleted(self.id)
+
+
+class MockIndexBinaryHNSW(Mock):
+    """Mock for faiss.IndexBinaryHNSW"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -154,16 +217,20 @@ class FaissMock(ModuleType):
         # Classes
         self.StandardGpuResources = Mock()
         self.GpuIndexCagra = MockGpuIndexCagra
+        self.GpuIndexBinaryCagra = MockGpuIndexBinaryCagra
         self.IndexIDMap = MockIndexIDMap
+        self.IndexBinaryIDMap = MockIndexBinaryIDMap
         self.IndexHNSWCagra = MockIndexHNSWCagra
         self.IVFPQBuildCagraConfig = MockIVFPQBuildCagraConfig
         self.IVFPQSearchCagraConfig = MockIVFPQSearchCagraConfig
         self.GpuIndexCagraConfig = MockGpuIndexCagraConfig
+        self.IndexBinaryHNSW = MockIndexBinaryHNSW
         self.Float32 = Mock()
         self.Int8 = Mock()
 
         # Enums
-        self.graph_build_algo_IVF_PQ = 1
+        self.graph_build_algo_IVF_PQ = 0
+        self.graph_build_algo_NN_DESCENT = 1
 
         self.METRIC_L2 = 0
         self.METRIC_INNER_PRODUCT = 1
@@ -173,12 +240,34 @@ class FaissMock(ModuleType):
         self.omp_get_num_threads = self._omp_get_num_threads
 
         self.write_index = self._write_index
+        self.write_index_binary = self._write_index_binary
+        self.index_binary_gpu_to_cpu = self._index_binary_gpu_to_cpu
 
     def _omp_set_num_threads(self, num_threads: int) -> None:
         self._num_threads = num_threads
 
     def _omp_get_num_threads(self) -> int:
         return self._num_threads
+
+    def _index_binary_gpu_to_cpu(self, index):
+        if not index:
+            raise ValueError("Index cannot be None")
+        if not isinstance(index, MockGpuIndexBinaryCagra):
+            raise TypeError("Target must be GpuIndexBinaryCagra")
+        return self.IndexBinaryHNSW()
+
+    def _write_index_binary(self, index, filepath):
+        if not isinstance(filepath, str):
+            raise TypeError("Filepath must be a string")
+        if not index:
+            raise ValueError("Index cannot be None")
+        if not isinstance(index, MockIndexBinaryIDMap):
+            raise TypeError("Target must be IndexBinaryIDMap")
+        try:
+            with open(filepath, "wb") as f:
+                f.write(b"MOCK_INDEX_BINARY")
+        except IOError as e:
+            raise IOError(f"Failed to write to {filepath}: {str(e)}")
 
     def _write_index(self, index, filepath):
         if not isinstance(filepath, str):
@@ -221,6 +310,36 @@ def sample_vectors():
 
 
 @pytest.fixture
+def sample_binary_vectors():
+    """Generate sample binary vectors for testing"""
+    return np.array(
+        [
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+            [10, 11, 12],
+            [13, 14, 15],
+        ],
+        dtype=np.uint8,
+    )
+
+
+@pytest.fixture
+def sample_byte_vectors():
+    """Generate sample byte vectors for testing"""
+    return np.array(
+        [
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+            [10, 11, 12],
+            [13, 14, 15],
+        ],
+        dtype=np.int8,
+    )
+
+
+@pytest.fixture
 def sample_doc_ids():
     """Generate sample document IDs for testing"""
     return np.array([1, 2, 3, 4, 5], dtype=np.int32)
@@ -231,4 +350,20 @@ def vectors_dataset(sample_vectors, sample_doc_ids):
     """Create a VectorsDataset instance for testing"""
     return VectorsDataset(
         vectors=sample_vectors, doc_ids=sample_doc_ids, dtype=DataType.FLOAT
+    )
+
+
+@pytest.fixture
+def byte_vectors_dataset(sample_vectors, sample_doc_ids):
+    """Create a VectorsDataset instance for testing"""
+    return VectorsDataset(
+        vectors=sample_vectors, doc_ids=sample_doc_ids, dtype=DataType.BYTE
+    )
+
+
+@pytest.fixture
+def binary_vectors_dataset(sample_vectors, sample_doc_ids):
+    """Create a VectorsDataset instance for testing"""
+    return VectorsDataset(
+        vectors=sample_vectors, doc_ids=sample_doc_ids, dtype=DataType.BINARY
     )
