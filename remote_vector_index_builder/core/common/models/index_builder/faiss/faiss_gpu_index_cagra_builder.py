@@ -62,9 +62,13 @@ class FaissGPUIndexCagraBuilder(FaissGPUIndexBuilder):
             The corresponding FAISS graph building algorithm implementation
             Defaults to IVF_PQ if the specified algorithm is not found
         """
-        switcher = {CagraGraphBuildAlgo.IVF_PQ: faiss.graph_build_algo_IVF_PQ}
+        switcher = {
+            CagraGraphBuildAlgo.IVF_PQ: faiss.graph_build_algo_IVF_PQ,
+            CagraGraphBuildAlgo.NN_DESCENT: faiss.graph_build_algo_NN_DESCENT,
+        }
         return switcher.get(self.graph_build_algo, faiss.graph_build_algo_IVF_PQ)
 
+    @staticmethod
     def _validate_params(params: Dict[str, Any]) -> None:
         """
         Pre-validates FaissGPUIndexCagraBuilder configuration parameters before object creation.
@@ -175,9 +179,46 @@ class FaissGPUIndexCagraBuilder(FaissGPUIndexBuilder):
     def _determine_faiss_numeric_type(dtype: DataType):
         if dtype == DataType.FLOAT:
             return faiss.Float32
-        elif dtype == DataType.BYTE:
+        elif dtype == DataType.BYTE or dtype == DataType.BINARY:
             return faiss.Int8
         raise ValueError(f"Unsupported data type: {dtype}")
+
+    @staticmethod
+    def _determine_gpu_index(
+        dtype, res, dataset_dimension, metric, faiss_gpu_index_config
+    ):
+        if dtype == DataType.FLOAT or dtype == DataType.BYTE:
+            return faiss.GpuIndexCagra(
+                res,
+                dataset_dimension,
+                metric,
+                faiss_gpu_index_config,
+            )
+        elif dtype == DataType.BINARY:
+            return faiss.GpuIndexBinaryCagra(
+                res, dataset_dimension, faiss_gpu_index_config
+            )
+        raise ValueError(f"Unsupported data type: {dtype}")
+
+    @staticmethod
+    def _do_build(vectors_dataset, faiss_gpu_index):
+        # Create ID mapping layer to preserve document IDs
+        if vectors_dataset.dtype != DataType.BINARY:
+            faiss_index_id_map = faiss.IndexIDMap(faiss_gpu_index)
+            faiss_index_id_map.add_with_ids(
+                vectors_dataset.vectors,
+                vectors_dataset.doc_ids,
+                FaissGPUIndexCagraBuilder._determine_faiss_numeric_type(
+                    vectors_dataset.dtype
+                ),
+            )
+        else:
+            faiss_index_id_map = faiss.IndexBinaryIDMap(faiss_gpu_index)
+            faiss_index_id_map.add_with_ids(
+                vectors_dataset.vectors, vectors_dataset.doc_ids
+            )
+
+        return faiss_index_id_map
 
     def build_gpu_index(
         self,
@@ -212,23 +253,16 @@ class FaissGPUIndexCagraBuilder(FaissGPUIndexBuilder):
             res = faiss.StandardGpuResources()
             res.noTempMemory()
             # Create GPU CAGRA index with specified configuration
-            faiss_gpu_index = faiss.GpuIndexCagra(
+            faiss_gpu_index = FaissGPUIndexCagraBuilder._determine_gpu_index(
+                vectors_dataset.dtype,
                 res,
                 dataset_dimension,
                 metric,
                 faiss_gpu_index_config,
             )
 
-            # Create ID mapping layer to preserve document IDs
-            faiss_index_id_map = faiss.IndexIDMap(faiss_gpu_index)
             # Add vectors and their corresponding IDs to the index
-            faiss_index_id_map.add_with_ids(
-                vectors_dataset.vectors,
-                vectors_dataset.doc_ids,
-                FaissGPUIndexCagraBuilder._determine_faiss_numeric_type(
-                    vectors_dataset.dtype
-                ),
-            )
+            faiss_index_id_map = self._do_build(vectors_dataset, faiss_gpu_index)
 
             return FaissGpuBuildIndexOutput(
                 gpu_index=faiss_gpu_index, index_id_map=faiss_index_id_map

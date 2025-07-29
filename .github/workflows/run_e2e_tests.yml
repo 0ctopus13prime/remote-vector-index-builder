@@ -2,6 +2,10 @@ name: Run Remote-Vector-Index-Builder E2E Core Test Image
 
 on:
   push:
+    # TMP for fp16-byte-binary support
+    branches:
+      - "main"
+    # TMP for fp16-byte-binary support
     paths:  # Note this is done for folder specific checkouts, reduce CI memory load
       - 'remote_vector_index_builder/**'
       - 'test_remote_vector_index_builder/**'
@@ -10,7 +14,9 @@ on:
       - '.github/workflows/run_e2e_tests.yml'
   pull_request:
     branches:
-      - "*"
+      # TMP for fp16-byte-binary support
+      - "main"
+      # TMP for fp16-byte-binary support
       - "feature/**"
     paths:
       - 'e2e/**'
