@@ -58,6 +58,8 @@ class VectorsDataset:
         """
         if dtype == DataType.FLOAT:
             return "<f4"
+        if dtype == DataType.FLOAT16:
+            return "<f2"
         if dtype == DataType.BYTE:
             return "<i1"
         if dtype == DataType.BINARY:
