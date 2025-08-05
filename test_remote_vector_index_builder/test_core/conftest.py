@@ -94,8 +94,8 @@ class MockGpuIndexBinaryCagra:
 
     def copyTo(self, cpu_index):
         """Mock implementation of copyTo method"""
-        if not isinstance(cpu_index, MockIndexBinaryHNSW):
-            raise TypeError("Target must be IndexBinaryHNSW")
+        if not isinstance(cpu_index, MockIndexBinaryHNSWCagra):
+            raise TypeError("Target must be MockIndexBinaryHNSWCagra")
         # Simulate copying data to CPU index
         return True
 
@@ -151,6 +151,22 @@ class MockIndexHNSWCagra(Mock):
         super().__init__(*args, **kwargs)
         self.hnsw = Mock()
         self.base_level_only = True
+
+    def __del__(self):
+        _deletion_tracker.mark_deleted(self.id)
+
+    @property
+    def is_deleted(self):
+        return _deletion_tracker.is_deleted(self.id)
+
+
+class MockIndexBinaryHNSWCagra(Mock):
+    """Mock for IndexBinaryHNSWCagra"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.hnsw = Mock()
+        self.base_level_only = False
 
     def __del__(self):
         _deletion_tracker.mark_deleted(self.id)
@@ -218,6 +234,7 @@ class FaissMock(ModuleType):
         self.StandardGpuResources = Mock()
         self.GpuIndexCagra = MockGpuIndexCagra
         self.GpuIndexBinaryCagra = MockGpuIndexBinaryCagra
+        self.IndexBinaryHNSWCagra = MockIndexBinaryHNSWCagra
         self.IndexIDMap = MockIndexIDMap
         self.IndexBinaryIDMap = MockIndexBinaryIDMap
         self.IndexHNSWCagra = MockIndexHNSWCagra

@@ -98,14 +98,13 @@ class FaissIndexHNSWCagraBuilder(FaissCPUIndexBuilder):
     ):
         try:
             # Convert GPU binary index to CPU binary index
-            cpu_index = faiss.index_binary_gpu_to_cpu(
-                faiss_gpu_build_index_output.gpu_index
-            )
-
-            # Configure CPU Index parameters
+            cpu_index = faiss.IndexBinaryHNSWCagra()
             cpu_index.hnsw.efConstruction = self.ef_construction
             cpu_index.hnsw.efSearch = self.ef_search
             cpu_index.base_level_only = self.base_level_only
+
+            # Convert GPU binary index to CPU binary index
+            faiss_gpu_build_index_output.gpu_index.copyTo(cpu_index)
 
             # Remove reference of GPU Index from the IndexBinaryIDMap
             faiss_gpu_build_index_output.index_id_map.index = None
