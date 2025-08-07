@@ -160,6 +160,22 @@ class MockIndexHNSWCagra(Mock):
         return _deletion_tracker.is_deleted(self.id)
 
 
+class MockIndexBinaryHNSWCagra(Mock):
+    """Mock for IndexBinaryHNSWCagra"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.hnsw = Mock()
+        self.base_level_only = False
+
+    def __del__(self):
+        _deletion_tracker.mark_deleted(self.id)
+
+    @property
+    def is_deleted(self):
+        return _deletion_tracker.is_deleted(self.id)
+
+
 class MockIndexBinaryHNSW(Mock):
     """Mock for faiss.IndexBinaryHNSW"""
 
@@ -218,6 +234,7 @@ class FaissMock(ModuleType):
         self.StandardGpuResources = Mock()
         self.GpuIndexCagra = MockGpuIndexCagra
         self.GpuIndexBinaryCagra = MockGpuIndexBinaryCagra
+        self.IndexBinaryHNSWCagra = MockIndexBinaryHNSWCagra
         self.IndexIDMap = MockIndexIDMap
         self.IndexBinaryIDMap = MockIndexBinaryIDMap
         self.IndexHNSWCagra = MockIndexHNSWCagra
