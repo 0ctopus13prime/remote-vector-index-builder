@@ -17,6 +17,7 @@ import copy
 
 from core.common.models import VectorsDataset, SpaceType
 from benchmarking.service.faiss_index_build_service import FaissIndexBuildService
+from core.common.models.index_build_parameters import DataType
 
 
 def runWorkload(
@@ -219,7 +220,7 @@ def get_indexing_metrics(workloadToExecute, indexType, indexingParam, xb, ids):
         if indexType == IndexTypes.GPU:
             monitor = MemoryMonitor(graph_file, monitor_gpu=True)
             monitor.start_monitoring()
-            vectors_dataset = VectorsDataset(xb, ids)
+            vectors_dataset = VectorsDataset(xb, ids, DataType.FLOAT16)
             faiss_index_build_service = FaissIndexBuildService()
             timingMetrics = faiss_index_build_service.build_index(
                 indexingParam,

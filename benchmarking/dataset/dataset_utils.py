@@ -80,6 +80,7 @@ def prepare_indexing_dataset(
     ).astype(dtype=np.float32)
     d: int = len(xb[0])
     ids = [i for i in range(len(xb))]
+    ids = np.array(ids, dtype='<i4')
     if normalize:
         logging.info("Doing normalization...")
         xb = xb / np.linalg.norm(xb)
