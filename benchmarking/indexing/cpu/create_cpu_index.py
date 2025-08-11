@@ -20,8 +20,11 @@ def indexData(
     metric = faiss.METRIC_L2
     if space_type == "innerproduct":
         metric = faiss.METRIC_INNER_PRODUCT
-    cpuPureHNSWIndex: faiss.IndexHNSWFlat = faiss.index_factory(
-        d, f"HNSW{m},Flat", metric
+    # cpuPureHNSWIndex: faiss.IndexHNSWFlat = faiss.index_factory(
+    #     d, f"HNSW{m},Flat", metric
+    # )
+    cpuPureHNSWIndex = faiss.index_factory(
+        d, f"HNSW16,SQfp16", metric
     )
 
     cpuPureHNSWIndex.hnsw.efConstruction = (
