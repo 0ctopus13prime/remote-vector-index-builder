@@ -6,9 +6,15 @@
 # compatible open source license.
 
 ARG CORE_IMAGE_TAG=core-snapshot
-FROM opensearchstaging/remote-vector-index-builder:${CORE_IMAGE_TAG}
+# FROM opensearchstaging/remote-vector-index-builder:${CORE_IMAGE_TAG}
+FROM kdy_core
 
 USER root
+
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y sudo vim \
+RUN usermod -aG sudo appuser
+RUN echo "appuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 WORKDIR /app
 

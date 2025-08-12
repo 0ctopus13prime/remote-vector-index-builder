@@ -77,7 +77,7 @@ def prepare_indexing_dataset(
     )
     xb: np.ndarray = index_dataset.read(
         index_dataset.size() if docToRead == -1 or docToRead is None else docToRead
-    ).astype(dtype=np.float32)
+    ).astype(dtype=np.float16)
     d: int = len(xb[0])
     ids = [i for i in range(len(xb))]
     ids = np.array(ids, dtype='<i4')
