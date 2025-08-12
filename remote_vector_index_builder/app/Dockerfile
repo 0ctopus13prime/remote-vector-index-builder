@@ -13,8 +13,9 @@ USER root
 
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y sudo vim \
-RUN usermod -aG sudo appuser
-RUN echo "appuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+RUN usermod -a -G sudo appuser \
+    && echo "appuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 WORKDIR /app
 
